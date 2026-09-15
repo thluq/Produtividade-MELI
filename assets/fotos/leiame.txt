@@ -1,0 +1,1 @@
+Coloque aqui as fotos dos operadores, nomeadas pelo LDAP (ex: jsilva.jpg). Fotos ausentes caem no avatar placeholder gerado automaticamente.
