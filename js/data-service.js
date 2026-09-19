@@ -7,16 +7,18 @@ var _maxRetries = 3;
 function carregarDados() {
   setStatus("loading", "carregando…");
   
-  // Reseta visibilidade da UI para o estado de loading
-  var gdpErrorBox = document.getElementById("gdp-error-box");
-  var oauthBox = document.getElementById("oauth-box");
-  var rankList = document.getElementById("rank-list");
-  var loadingSpinner = document.getElementById("loading-spinner");
-  
-  if (gdpErrorBox) gdpErrorBox.style.display = "none";
-  if (oauthBox) oauthBox.style.display = "none";
-  if (rankList) rankList.style.display = "none";
-  if (loadingSpinner) loadingSpinner.style.display = "flex";
+  // Reseta visibilidade da UI para o estado de loading apenas se for o primeiro carregamento
+  if (!window.lastUpdate) {
+    var gdpErrorBox = document.getElementById("gdp-error-box");
+    var oauthBox = document.getElementById("oauth-box");
+    var rankList = document.getElementById("rank-list");
+    var loadingSpinner = document.getElementById("loading-spinner");
+    
+    if (gdpErrorBox) gdpErrorBox.style.display = "none";
+    if (oauthBox) oauthBox.style.display = "none";
+    if (rankList) rankList.style.display = "none";
+    if (loadingSpinner) loadingSpinner.style.display = "flex";
+  }
 
   tentarFontes(0);
 }
