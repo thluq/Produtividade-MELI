@@ -195,7 +195,7 @@ function renderBusca(resultados) {
   if (!resultados || resultados.length === 0) {
     container.innerHTML =
       '<div class="hc-placeholder">' +
-        '<div class="emoji">😕</div>' +
+        '<div class="hc-placeholder-icon"><img src="assets/magnifying-glass.png" alt="" class="placeholder-img"></div>' +
         '<p>Nenhum resultado encontrado</p>' +
       '</div>';
     return;
@@ -204,7 +204,6 @@ function renderBusca(resultados) {
   var html = "";
   for (var i = 0; i < resultados.length; i++) {
     var r = resultados[i];
-    var icone = r.setor === "SORTING" ? "📦" : "🚛";
     var corClasse = r.setor === "SORTING" ? "hc-card-sorting" : "hc-card-carreg";
 
     // Buscar foto pela aba LDAP (por nome, já que carregamento não tem LDAP)
@@ -342,10 +341,10 @@ function abrirMapa() {
   overlay.style.display = "flex";
 
   if (activeHcSub === "hc-sorting") {
-    titulo.textContent = "Mapa — Sorting";
+    titulo.innerHTML = '<img src="assets/map.png" alt="" class="title-icon"> Mapa — Sorting';
     content.innerHTML = gerarMapaSorting();
   } else {
-    titulo.textContent = "Mapa — Carregamento";
+    titulo.innerHTML = '<img src="assets/map.png" alt="" class="title-icon"> Mapa — Carregamento';
     content.innerHTML = gerarMapaCarregamento();
   }
 }

@@ -6,15 +6,33 @@ var _maxRetries = 3;
 
 function carregarDados() {
   setStatus("loading", "carregando…");
+  
+  // Reseta visibilidade da UI para o estado de loading
+  var gdpErrorBox = document.getElementById("gdp-error-box");
+  var oauthBox = document.getElementById("oauth-box");
+  var rankList = document.getElementById("rank-list");
+  var loadingSpinner = document.getElementById("loading-spinner");
+  
+  if (gdpErrorBox) gdpErrorBox.style.display = "none";
+  if (oauthBox) oauthBox.style.display = "none";
+  if (rankList) rankList.style.display = "none";
+  if (loadingSpinner) loadingSpinner.style.display = "flex";
+
   tentarFontes(0);
 }
 
 function tentarFontes(idx) {
   if (idx >= CONFIG.ORDER.length) {
     setStatus("error", "falha total");
-    document.getElementById("status-msg").innerHTML =
-      '<div class="status-box error">Não foi possível carregar os dados de nenhuma fonte.</div>';
-    mostrarErroOAuth();
+    document.getElementById("status-msg").innerHTML = "";
+    document.getElementById("rank-list").style.display = "none";
+    var loadingSpinner = document.getElementById("loading-spinner");
+    if (loadingSpinner) loadingSpinner.style.display = "none";
+    
+    // Mostra erro genérico apenas se não for erro de OAuth já ativo
+    if (document.getElementById("oauth-box").style.display !== "flex") {
+      document.getElementById("gdp-error-box").style.display = "flex";
+    }
 
     // Retry automático
     if (_retryCount < _maxRetries) {
@@ -113,28 +131,51 @@ function carregarExtrasAPI(onDone) {
     .catch(function() { ck(); });
 }
 
+/* ── APPS SCRIPT via JSONP — com aproveitamento de resposta tardia ── */
+var _appsScriptRespondeu = false;
+
 function fetchAppsScript(onFail) {
   var cbName = "_cb_" + Date.now();
+  _appsScriptRespondeu = false;
+
+  // Timeout "soft": dispara o fallback (CSV), mas NÃO mata o callback.
+  // Se a resposta chegar depois, ela é processada e sobrescreve o CSV.
   var timeout = setTimeout(function() {
-    window[cbName] = function() {};
-    onFail();
+    if (!_appsScriptRespondeu) {
+      onFail("lento (>30s) — usando fallback, appsscript segue em background");
+    }
   }, 30000);
 
   window[cbName] = function(resp) {
     clearTimeout(timeout);
+    _appsScriptRespondeu = true;
     try {
       var rows = resp && resp.values ? resp.values : [];
-      if (rows.length < 3) { onFail(); return; }
+      if (rows.length < 3) {
+        onFail("resposta ok mas só " + rows.length + " linhas");
+        return;
+      }
       processarLdap(resp.ldap || []);
-      dadosSortingRaw = resp.sorting || [];
-      dadosCarregRaw = resp.carregamento || [];
-      processarDados(rows, "appsscript");
-    } catch(e) { onFail(); }
+      dadosSortingRaw  = resp.sorting || [];
+      dadosCarregRaw   = resp.carregamento || [];
+      limparErro();                          // ← some o popup de erro
+      processarDados(rows, "appsscript");    // sobrescreve CSV se já carregou
+    } catch (e) {
+      onFail("erro ao processar: " + e.message);
+    } finally {
+      // limpa a tag script pra não acumular no DOM
+      var s = document.getElementById(cbName);
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+    }
   };
 
   var script = document.createElement("script");
+  script.id = cbName;
   script.src = CONFIG.APPS_SCRIPT_URL + "?callback=" + cbName;
-  script.onerror = function() { clearTimeout(timeout); onFail(); };
+  script.onerror = function() {
+    clearTimeout(timeout);
+    onFail("erro de rede/script (URL ou bloqueio)");
+  };
   document.head.appendChild(script);
 }
 
@@ -283,8 +324,15 @@ function processarDados(rows, fonte) {
   // Montar mapa de duplas (mesa → ldaps)
   montarMapaDuplas();
   esconderErroOAuth();
+  document.getElementById("gdp-error-box").style.display = "none";
+  var loadingSpinner = document.getElementById("loading-spinner");
+  if (loadingSpinner) loadingSpinner.style.display = "none";
+  document.getElementById("rank-list").style.display = "block";
   lastUpdate = new Date();
-  document.getElementById("hd-facility").textContent = facilityName + " · " + dataRef;
+  var hdFacilityName = document.getElementById("hd-facility-name");
+  if (hdFacilityName) hdFacilityName.textContent = facilityName;
+  var tvFacility = document.getElementById("tv-facility");
+  if (tvFacility) tvFacility.textContent = facilityName + " · " + dataRef;
   setStatus("ok", fonte);
   renderRanking();
 
@@ -310,9 +358,10 @@ function setStatus(type, label) {
 function autorizarOAuth() {
   window.open("/api/v1/google/oauth/start", "_blank");
   document.getElementById("oauth-box").innerHTML =
-    '<div class="oauth-icon">⏳</div>' +
-    '<p>Autorize na aba que abriu e depois clique em tentar novamente</p>' +
-    '<button class="oauth-btn" onclick="carregarDados()">🔄 Tentar novamente</button>';
+    '<img src="https://http2.mlstatic.com/frontend-assets/logistics-gdp-frontend/icon-gdp-load-page.svg" alt="Autorização" class="gdp-error-img">' +
+    '<h2>Aguardando autorização...</h2>' +
+    '<p>Autorize na aba que abriu e depois clique em tentar novamente para acessar os dados da operação.</p>' +
+    '<button class="gdp-btn-primary" onclick="carregarDados()">Tentar novamente</button>';
 }
 
 function mostrarErroOAuth() {

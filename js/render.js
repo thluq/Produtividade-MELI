@@ -666,3 +666,13 @@ function minutosParaHms(min) {
 function pad(n) {
   return n < 10 ? "0" + n : "" + n;
 }
+
+/* Remove qualquer popup/box de erro e o card de autorização do Google */
+function limparErro() {
+  var el = document.getElementById("status-msg");
+  if (el) el.innerHTML = "";
+  // se o box de erro/autorização for outro container, esconda aqui também:
+  var authBox = document.getElementById("auth-box");
+  if (authBox) authBox.style.display = "none";
+  setStatus("ok", "appsscript");
+}

@@ -4,19 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Produtividade da Operação</title>
+  <link rel="icon" href="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.5/mercadolibre/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem("kpi_meli_theme");
+        if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+      } catch(e) {}
+    })();
+  </script>
   <script src="https://grid.adminml.com/grid-sdk.js"></script>
 </head>
 <body>
 
-<header class="hd">
-  <div class="hd-info">
-    <h1>Produtividade(Beta)</h1>
-    <small id="hd-facility">SSP20 · —</small>
+<header class="kraken-nav-header hd">
+  <div class="header-left">
+    <a href="index.html" class="logo-link" title="Mercado Livre">
+      <img src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.19.5/mercadolibre/logo__large_plus.png" alt="Mercado Livre" class="logo-img">
+    </a>
   </div>
   <div class="hd-right">
-    <div class="hd-status" id="hd-status-btn" onclick="carregarDados()"><span class="dot" id="status-dot"></span><span id="status-text">carregando…</span></div>
-    <button id="tv-btn" class="tv-btn" title="Modo TV"></button>
+    <div class="hd-seeing">Você está vendo: <strong id="hd-facility-name">SSP20</strong></div>
+    <div class="hd-status" id="hd-status-btn" onclick="carregarDados()" title="Clique para recarregar dados">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">carregando…</span>
+    </div>
+    <button id="theme-toggle-btn" class="theme-toggle-btn" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+      <img src="assets/dark-mode.png" alt="" class="btn-icon">
+      <span class="theme-toggle-text">Escuro</span>
+    </button>
+    <button id="tv-btn" class="tv-btn" title="Modo TV">
+      <img src="assets/tv.png" alt="" class="btn-icon">
+      <span>Modo TV</span>
+    </button>
     <div class="hd-clock" id="clock">--:--</div>
   </div>
 </header>
@@ -42,15 +64,34 @@
   </div>
   <div class="content">
     <div class="updated-line" id="updated-line"></div>
-    <div id="status-msg"></div>
-<div id="oauth-box" class="oauth-box" style="display:none">
-  <div class="oauth-icon">🔑</div>
-  <p>Conexão com Google Sheets não autorizada</p>
-  <button id="oauth-btn" class="oauth-btn" onclick="autorizarOAuth()">Autorizar Google Sheets</button>
-  <button class="oauth-btn oauth-btn-sec" onclick="carregarDados()">🔄 Tentar novamente</button>
-</div>
     <div class="summary-bar" id="summary-bar"></div>
-    <div class="rank-list" id="rank-list"></div>
+    
+    <div class="main-white-card">
+      <div id="status-msg"></div>
+
+      <!-- Spinner de Loading -->
+      <div id="loading-spinner" class="gdp-loading-container" style="display:none">
+        <div class="gdp-spinner"></div>
+      </div>
+      
+      <!-- Container de Erro Estilo GDP -->
+      <div id="gdp-error-box" class="gdp-error-container" style="display:none">
+        <img src="https://http2.mlstatic.com/frontend-assets/logistics-gdp-frontend/icon-gdp-load-page.svg" alt="Erro" class="gdp-error-img">
+        <h2 id="gdp-error-title">Não foi possível carregar os dados</h2>
+        <p id="gdp-error-desc">Ocorreu um erro ao buscar as informações da operação. Verifique sua conexão ou tente novamente.</p>
+        <button id="gdp-error-btn" class="gdp-btn-primary" onclick="carregarDados()">Tentar novamente</button>
+      </div>
+
+      <div id="oauth-box" class="gdp-error-container" style="display:none">
+        <img src="https://http2.mlstatic.com/frontend-assets/logistics-gdp-frontend/icon-gdp-load-page.svg" alt="Autorização" class="gdp-error-img">
+        <h2>Conexão com Google Sheets não autorizada</h2>
+        <p>Autorize na aba que abriu e depois clique em tentar novamente para acessar os dados da operação.</p>
+        <button id="oauth-btn" class="gdp-btn-primary" onclick="autorizarOAuth()" style="margin-bottom: 8px;">Autorizar Google Sheets</button>
+        <button class="gdp-btn-secondary" onclick="carregarDados()">Tentar novamente</button>
+      </div>
+
+      <div class="rank-list" id="rank-list"></div>
+    </div>
   </div>
 </div>
 
@@ -64,15 +105,19 @@
 
   <div class="hc-toolbar">
     <div class="hc-search-box">
-      <input type="text" id="hc-search-input" placeholder="🔍  Digite seu nome..." autocomplete="off">
+      <img src="assets/magnifying-glass.png" alt="" class="search-input-icon">
+      <input type="text" id="hc-search-input" placeholder="Digite seu nome..." autocomplete="off">
       <button id="hc-search-clear" class="hc-clear-btn" style="display:none">✕</button>
     </div>
-    <button id="hc-mapa-btn" class="hc-mapa-btn" title="Ver mapa visual">🗺️ Mapa</button>
+    <button id="hc-mapa-btn" class="hc-mapa-btn" title="Ver mapa visual">
+      <img src="assets/map.png" alt="" class="btn-icon">
+      <span>Mapa</span>
+    </button>
   </div>
 
   <div id="hc-results" class="hc-results">
     <div class="hc-placeholder">
-      <div class="emoji">🔍</div>
+      <div class="hc-placeholder-icon"><img src="assets/magnifying-glass.png" alt="" class="placeholder-img"></div>
       <p>Digite seu nome para encontrar sua posição</p>
     </div>
   </div>
@@ -80,9 +125,9 @@
   <!-- Mapa visual (overlay) -->
   <div id="hc-mapa-overlay" class="hc-mapa-overlay" style="display:none">
     <div class="hc-mapa-header">
-      <h2 id="hc-mapa-titulo">🗺️ Mapa — Sorting</h2>
+      <h2 id="hc-mapa-titulo"><img src="assets/map.png" alt="" class="title-icon"> Mapa — Sorting</h2>
       <div class="hc-mapa-actions">
-        <button onclick="window.print()" class="hc-print-btn">🖨️ Imprimir</button>
+        <button onclick="window.print()" class="hc-print-btn">Imprimir</button>
         <button onclick="fecharMapa()" class="hc-close-btn">✕</button>
       </div>
     </div>
@@ -110,6 +155,7 @@
 </div>
 
 <!-- ── SCRIPTS ── -->
+<script src="js/theme.js"></script>
 <script src="js/config.js"></script>
 <script src="js/state.js"></script>
 <script src="js/data-service.js"></script>

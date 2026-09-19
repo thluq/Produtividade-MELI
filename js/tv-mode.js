@@ -62,8 +62,10 @@ function tvRenderAba() {
   var meta = isGuarda ? CONFIG.METAS.guarda : CONFIG.METAS.inducao;
 
   // Label
-  document.getElementById("tv-aba-label").textContent = isGuarda ? "GUARDA" : "INDUÇÃO";
-  document.getElementById("tv-aba-label").style.color = isGuarda ? "#e3b341" : "#58a6ff";
+  var abaLabel = document.getElementById("tv-aba-label");
+  abaLabel.textContent = isGuarda ? "GUARDA" : "INDUÇÃO";
+  abaLabel.className = "tv-aba-label " + (isGuarda ? "aba-guarda" : "aba-inducao");
+  abaLabel.style.color = "";
 
   // Filtro de ciclo
   var filtrados;
