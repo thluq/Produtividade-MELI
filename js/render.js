@@ -411,7 +411,7 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
   card.appendChild(pill);
 
   // ── Jornada e EIT ──
-  if (activeJornada && !tvAtivo && mapaMt[op.ldap]) {
+  if (activeJornada && mapaMt[op.ldap]) {
     var mtData = null;
     var foraCicloMin = 0;
     
