@@ -1866,3 +1866,229 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Cabeçalho */
+  .kraken-nav-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px 16px;
+    height: auto;
+    gap: 12px;
+  }
+  .hd-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hd-clock, #tv-btn {
+    display: none; /* Esconde relógio e botão TV no mobile */
+  }
+  
+  /* Filtros e Ciclos */
+  .cyclerow {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .subnav, .nav-bar {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Main Card and Layout */
+  .content {
+    padding: 10px;
+  }
+  .main-white-card {
+    padding: 12px;
+  }
+
+  /* Listas (Ranking) */
+  .rank-card {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 8px;
+    height: auto;
+  }
+  .rank-pos {
+    width: 24px;
+    font-size: 14px;
+  }
+  .rank-photo {
+    width: 32px;
+    height: 32px;
+  }
+  .rank-info {
+    width: calc(100% - 85px); /* Ocupa o resto da linha superior */
+  }
+  .rank-name {
+    font-size: 14px;
+    white-space: normal;
+  }
+  .rank-ciclo {
+    font-size: 11px;
+    white-space: normal;
+  }
+  .rank-total {
+    font-size: 16px;
+    width: 100%;
+    text-align: left;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--br);
+  }
+  .rank-total::before {
+    content: 'Total: ';
+    font-weight: 400;
+    font-size: 12px;
+    color: var(--t3);
+  }
+  .rank-metricas {
+    width: 60%;
+    margin-left: 0;
+  }
+  .rank-pill {
+    width: 35%;
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  /* Divisão HC - Barra e Mapa */
+  .hc-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .hc-mapa-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .hc-search-box {
+    width: 100%;
+  }
+
+  /* Summary Bar */
+  .summary-bar {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .summary-stat {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   JORNADA (FEATURE 3) E LMS (FEATURE 4)
+   ══════════════════════════════════════════════════════════════════════ */
+.rank-jornada-container {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--br);
+}
+.jornada-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100%;
+  background: var(--s4);
+}
+.jornada-segment {
+  height: 100%;
+}
+.jornada-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.jornada-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--t3);
+}
+.jornada-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.badge-eit {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(242,61,79,0.4);
+  z-index: 10;
+}
+.lms-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+.lms-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.lms-table th, .lms-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--br);
+  font-size: 13px;
+}
+.lms-table th {
+  background: var(--s3);
+  font-weight: 700;
+  color: var(--t3);
+  white-space: nowrap;
+}
+.lms-table tbody tr:hover {
+  background: var(--s3);
+}
+.lms-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.lms-sortable:hover {
+  color: var(--t1);
+}
+.sort-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+}
+.sort-icon.asc::after { content: '▲'; }
+.sort-icon.desc::after { content: '▼'; }
+.lms-avatar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lms-avatar img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--br);
+}
+.lms-name {
+  font-weight: 700;
+  color: var(--t1);
+}

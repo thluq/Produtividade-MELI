@@ -4,6 +4,7 @@
 
 var activeSub = "guarda";      // sub-aba ativa: "guarda" ou "inducao"
 var activeCycle = "TODOS";     // filtro de ciclo: "TODOS", "AM1", "PM1", "SD"
+var activeVolumoso = false;    // filtro de volumoso ativo
 var dadosGuarda = [];          // array de objetos {operatorId, ldap, ciclo, total}
 var dadosInducao = [];         // array de objetos {operatorId, ldap, ciclo, total}
 var duracaoGuarda = [];        // array de objetos {ciclo, inicio, fimAjustado, fimBruto, duracaoMin, duracaoHms}
@@ -13,6 +14,8 @@ var dataRef = "";              // ex: "29/08/2026"
 var lastUpdate = null;         // Date do último carregamento
 var fonteDados = "";           // "grid", "appsscript" ou "csv"
 var mapaNomes = {};         // { ldap: { nome: "...", foto: "..." } }
+var mapaMt = {};               // { ldap: { ciclo: { guarda, volumoso, inducao, ... }, TOTAL: { ... } } }
+var mapaLms = {};              // { ldap: { processo, ocioso, tnd, flagEit, ocupacao, ... } }
 var dadosSortingRaw = [];      // dados brutos da aba SORTING
 var dadosCarregRaw = [];       // dados brutos da aba CARREGAMENTO
 var activeHcSub = "hc-sorting"; // sub-aba ativa da Divisão HC
@@ -21,3 +24,12 @@ var tvAtivo = false;            // modo TV ligado/desligado
 var tvScrollTimer = null;       // timer do auto-scroll
 var tvTrocaTimer = null;        // timer da troca de aba
 var tvAbaAtual = "guarda";      // aba atual no modo TV
+
+// ── Estado LMS e Jornada ──
+var activeJornada = false;
+try {
+  activeJornada = localStorage.getItem("kpi_jornada") === "1";
+} catch(e) {}
+var lmsSearchText = "";
+var lmsSortCol = "ocupacao";
+var lmsSortAsc = true;

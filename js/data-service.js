@@ -158,6 +158,8 @@ function fetchAppsScript(onFail) {
         return;
       }
       processarLdap(resp.ldap || []);
+      processarMt(resp.mt || []);
+      processarLms(resp.lms || []);
       dadosSortingRaw  = resp.sorting || [];
       dadosCarregRaw   = resp.carregamento || [];
       limparErro();                          // ← some o popup de erro
@@ -336,11 +338,24 @@ function processarDados(rows, fonte) {
   var tvFacility = document.getElementById("tv-facility");
   if (tvFacility) tvFacility.textContent = facilityName + " · " + dataRef;
   setStatus("ok", fonte);
+  
+  if (activeSub === "guarda") {
+    var chipVol = document.getElementById("chip-volumoso");
+    if (chipVol) {
+      chipVol.style.display = Object.keys(mapaMt).length > 0 ? "inline-block" : "none";
+    }
+  }
+  
   renderRanking();
 
   // Renderizar lista HC se a página estiver visível
   if (typeof renderListaHC === "function") {
     renderListaHC("");
+  }
+
+  // Renderizar aba LMS
+  if (typeof renderLms === "function") {
+    renderLms();
   }
 }
 
@@ -422,5 +437,84 @@ function formatarData(raw) {
     return dia + "/" + mes + "/" + ano;
   } catch(e) {
     return raw;
+  }
+}
+
+function processarMt(rows) {
+  mapaMt = {};
+  if (!rows || rows.length < 2) return;
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r || !r[0]) continue;
+    var ldap = r[0].toString().toLowerCase().trim();
+    var ciclo = (r[1] || "").toString().toUpperCase().trim();
+    if (!mapaMt[ldap]) {
+      mapaMt[ldap] = { TOTAL: { guarda: 0, volumoso: 0, inducao: 0, carregamento: 0, ps: 0, pesca: 0, apoio: 0, outros: 0, tnd: 0, ocioso: 0, flagEit: 0, total: 0 } };
+    }
+    var num = function(val) { return parseFloat((val || "0").toString().replace(",", ".")) || 0; };
+    var obj = {
+      guarda: num(r[2]),
+      volumoso: num(r[3]),
+      inducao: num(r[4]),
+      carregamento: num(r[5]),
+      ps: num(r[6]),
+      pesca: num(r[7]),
+      apoio: num(r[8]),
+      outros: num(r[9]),
+      tnd: num(r[10]),
+      ocioso: num(r[11]),
+      flagEit: num(r[12]),
+      total: num(r[13])
+    };
+    mapaMt[ldap][ciclo] = obj;
+    
+    var tot = mapaMt[ldap].TOTAL;
+    tot.guarda += obj.guarda;
+    tot.volumoso += obj.volumoso;
+    tot.inducao += obj.inducao;
+    tot.carregamento += obj.carregamento;
+    tot.ps += obj.ps;
+    tot.pesca += obj.pesca;
+    tot.apoio += obj.apoio;
+    tot.outros += obj.outros;
+    tot.tnd += obj.tnd;
+    tot.ocioso += obj.ocioso;
+    tot.flagEit = Math.max(tot.flagEit, obj.flagEit);
+    tot.total += obj.total;
+  }
+}
+
+function processarLms(rows) {
+  mapaLms = {};
+  if (!rows || rows.length < 2) return;
+  for (var i = 1; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r || !r[0]) continue;
+    var ldap = r[0].toString().toLowerCase().trim();
+    var num = function(val) { return parseFloat((val || "0").toString().replace(",", ".")) || 0; };
+    
+    var aaRaw = r[6];
+    var aa = false;
+    if (aaRaw === true) {
+      aa = true;
+    } else if (typeof aaRaw === "string") {
+      var upper = aaRaw.toUpperCase().trim();
+      aa = (upper === "TRUE" || upper === "VERDADEIRO");
+    }
+
+    mapaLms[ldap] = {
+      processo: num(r[1]),
+      ocioso: num(r[2]),
+      tnd: num(r[3]),
+      flagEit: num(r[4]),
+      ocupacao: num(r[5]),
+      autoatribuiu: aa,
+      entradas: (r[7] === "" || r[7] === null || r[7] === undefined) ? null : num(r[7]),
+      cia: num(r[8]),
+      coa: num(r[9]),
+      pctCia: num(r[10]),
+      pctCoa: num(r[11]),
+      jornada: num(r[12])
+    };
   }
 }

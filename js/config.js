@@ -47,7 +47,8 @@ COLS_GUARDA: {
 
   METAS: {
     guarda: { porMinuto: 5, porHora: 300 },
-    inducao: { porMinuto: 33.33, porHora: 2000 }
+    inducao: { porMinuto: 33.33, porHora: 2000 },
+    volumoso: { porMinuto: 3.33, porHora: 200 }
   },
 
   STATUS: {

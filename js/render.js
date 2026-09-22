@@ -6,16 +6,38 @@ function renderRanking() {
   var dados = isGuarda ? dadosGuarda : dadosInducao;
   var duracao = isGuarda ? duracaoGuarda : duracaoInducao;
   var meta = isGuarda ? CONFIG.METAS.guarda : CONFIG.METAS.inducao;
+  if (isGuarda && activeVolumoso) {
+    meta = CONFIG.METAS.volumoso;
+  }
 
-  // ── Filtro de ciclo ──
-  var filtrados;
-  if (activeCycle === "TODOS") {
-    filtrados = dados;
-  } else {
-    filtrados = [];
-    for (var i = 0; i < dados.length; i++) {
-      if (dados[i].ciclo === activeCycle) filtrados.push(dados[i]);
+  // ── Filtro de ciclo e Volumoso ──
+  var filtrados = [];
+  for (var i = 0; i < dados.length; i++) {
+    var op = dados[i];
+    if (activeCycle !== "TODOS" && op.ciclo !== activeCycle) continue;
+    
+    if (Object.keys(mapaMt).length > 0) {
+      var ldap = op.ldap;
+      var cicloMap = activeCycle === "TODOS" ? "TOTAL" : op.ciclo;
+      var mtInfo = mapaMt[ldap] && mapaMt[ldap][cicloMap];
+      var isVolumoso = false;
+      if (mtInfo) {
+        isVolumoso = mtInfo.volumoso >= 30 &&
+                     mtInfo.volumoso > mtInfo.guarda &&
+                     mtInfo.volumoso > mtInfo.inducao;
+      }
+      if (isGuarda) {
+        // Guarda: chip volumoso alterna entre as duas populações
+        if (activeVolumoso && !isVolumoso) continue;
+        if (!activeVolumoso && isVolumoso) continue;
+      } else {
+        // Indução: rep de volumoso NUNCA aparece (evita duplicidade
+        // do bipe único e meta injusta de 2000/h para volumoso)
+        if (isVolumoso) continue;
+      }
     }
+    
+    filtrados.push(op);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -117,20 +139,44 @@ function renderRanking() {
     var comTaxa = [];
     for (var i = 0; i < filtrados.length; i++) {
       var op = filtrados[i];
-      var duracaoCicloRef = getDuracaoCicloUnico(duracao, op.ciclo);
+      
+      var minutosAtivos = op.duracaoAtivaMin;
+      if (isGuarda && activeVolumoso && Object.keys(mapaMt).length > 0) {
+        var cicloMapTaxa = activeCycle === "TODOS" ? "TOTAL" : op.ciclo;
+        var mtV = mapaMt[op.ldap] && mapaMt[op.ldap][cicloMapTaxa];
+        if (mtV && mtV.volumoso > 0) {
+          minutosAtivos = mtV.volumoso;
+        }
+      }
+      
+      var opToRender = op;
+      if (minutosAtivos !== op.duracaoAtivaMin) {
+        opToRender = {
+          operatorId: op.operatorId,
+          ldap: op.ldap,
+          ciclo: op.ciclo,
+          total: op.total,
+          duracaoAtivaMin: minutosAtivos,
+          duracaoBrutaMin: op.duracaoBrutaMin,
+          tempoInativoMin: op.tempoInativoMin,
+          pacotesPorMin: op.pacotesPorMin
+        };
+      }
+
+      var duracaoCicloRef = getDuracaoCicloUnico(duracao, opToRender.ciclo);
       var minimoMin = (duracaoCicloRef && duracaoCicloRef.duracaoMin > 0)
         ? duracaoCicloRef.duracaoMin * CONFIG.MINIMO_ATIVO_PCT
         : 0;
 
       var taxa;
-      if (op.duracaoAtivaMin >= minimoMin && op.duracaoAtivaMin > 0) {
-        var porMin = op.total / op.duracaoAtivaMin;
+      if (opToRender.duracaoAtivaMin >= minimoMin && opToRender.duracaoAtivaMin > 0) {
+        var porMin = opToRender.total / opToRender.duracaoAtivaMin;
         taxa = { porMinuto: porMin, porHora: porMin * 60, temDuracao: true };
       } else {
         taxa = { porMinuto: 0, porHora: 0, temDuracao: false };
       }
 
-      comTaxa.push({ op: op, taxa: taxa, isMesa: false });
+      comTaxa.push({ op: opToRender, taxa: taxa, isMesa: false });
     }
   }
 
@@ -290,10 +336,11 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
   cicloTag.className = "rank-ciclo";
   var cicloTxt = op.ciclo;
   if (op.duracaoAtivaMin > 0) {
-    cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
-    if (op.tempoInativoMin > 0) {
-      cicloTxt += " · " + formatarMinutos(op.tempoInativoMin) + " parado";
-    }
+    // Ocultado a pedido:
+    // cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
+    // if (op.tempoInativoMin > 0) {
+    //   cicloTxt += " · " + formatarMinutos(op.tempoInativoMin) + " parado";
+    // }
   }
   cicloTag.textContent = cicloTxt;
   info.appendChild(nome);
@@ -362,6 +409,112 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
   card.appendChild(totalEl);
   card.appendChild(metricas);
   card.appendChild(pill);
+
+  // ── Jornada e EIT ──
+  if (activeJornada && !tvAtivo && mapaMt[op.ldap]) {
+    var mtData = null;
+    var foraCicloMin = 0;
+    
+    if (activeCycle === "TODOS") {
+      var keys = Object.keys(mapaMt[op.ldap]);
+      var sumObj = { guarda: 0, volumoso: 0, inducao: 0, carregamento: 0, ps: 0, pesca: 0, apoio: 0, outros: 0, tnd: 0, ocioso: 0, flagEit: 0, total: 0 };
+      for (var k = 0; k < keys.length; k++) {
+        var c = keys[k];
+        if (c !== "TOTAL" && c !== "FORA_CICLO") {
+          var o = mapaMt[op.ldap][c];
+          sumObj.guarda += (o.guarda || 0);
+          sumObj.volumoso += (o.volumoso || 0);
+          sumObj.inducao += (o.inducao || 0);
+          sumObj.carregamento += (o.carregamento || 0);
+          sumObj.ps += (o.ps || 0);
+          sumObj.pesca += (o.pesca || 0);
+          sumObj.apoio += (o.apoio || 0);
+          sumObj.outros += (o.outros || 0);
+          sumObj.tnd += (o.tnd || 0);
+          sumObj.ocioso += (o.ocioso || 0);
+          sumObj.flagEit = Math.max(sumObj.flagEit, (o.flagEit || 0));
+          sumObj.total += (o.total || 0);
+        }
+      }
+      
+      if (mapaMt[op.ldap]["FORA_CICLO"]) {
+        var fc = mapaMt[op.ldap]["FORA_CICLO"];
+        foraCicloMin = (fc.total || 0);
+        sumObj.flagEit = Math.max(sumObj.flagEit, (fc.flagEit || 0));
+      }
+      mtData = sumObj;
+    } else {
+      mtData = mapaMt[op.ldap][activeCycle];
+    }
+
+    if (mtData) {
+      // EIT badge
+      if (mtData.flagEit === 1) {
+        card.style.position = "relative";
+        var badgeEit = document.createElement("div");
+        badgeEit.className = "badge-eit";
+        badgeEit.textContent = "EIT";
+        card.appendChild(badgeEit);
+      }
+      
+      // Barra de Jornada
+      if (mtData.total > 0 || foraCicloMin > 0) {
+        card.style.flexWrap = "wrap";
+        
+        var jContainer = document.createElement("div");
+        jContainer.className = "rank-jornada-container";
+        
+        var jBar = document.createElement("div");
+        jBar.className = "jornada-bar";
+        
+        var jChips = document.createElement("div");
+        jChips.className = "jornada-chips";
+        
+        var segments = [
+          { key: 'guarda', label: 'Guarda', color: '#2e7d32' },
+          { key: 'volumoso', label: 'Volumoso', color: '#8d6e63' },
+          { key: 'inducao', label: 'Indução', color: '#1565c0' },
+          { key: 'carregamento', label: 'Carreg.', color: '#6a1b9a' },
+          { key: 'ps', label: 'PS', color: '#ef6c00' },
+          { key: 'pesca', label: 'Pesca', color: '#00838f' },
+          { key: 'apoio', label: 'Apoio', color: '#9e9d24' },
+          { key: 'outros', label: 'Outros', color: '#546e7a' },
+          { key: 'tnd', label: 'TND', color: '#fdd835' },
+          { key: 'ocioso', label: 'Ocioso', color: '#b71c1c' }
+        ];
+        
+        for (var i = 0; i < segments.length; i++) {
+          var seg = segments[i];
+          var min = mtData[seg.key] || 0;
+          if (min > 0) {
+            var pct = mtData.total > 0 ? (min / mtData.total) * 100 : 0;
+            
+            var divSeg = document.createElement("div");
+            divSeg.className = "jornada-segment";
+            divSeg.style.width = pct + "%";
+            divSeg.style.backgroundColor = seg.color;
+            jBar.appendChild(divSeg);
+            
+            var chip = document.createElement("div");
+            chip.className = "jornada-chip";
+            chip.innerHTML = '<span class="jornada-chip-dot" style="background-color:' + seg.color + '"></span>' + seg.label + ' ' + Math.round(min) + 'min';
+            jChips.appendChild(chip);
+          }
+        }
+        
+        if (foraCicloMin > 0 && activeCycle === "TODOS") {
+          var fcChip = document.createElement("div");
+          fcChip.className = "jornada-chip";
+          fcChip.innerHTML = '<span class="jornada-chip-dot" style="background-color:#9e9e9e"></span>Fora Ciclo ' + Math.round(foraCicloMin) + 'min';
+          jChips.appendChild(fcChip);
+        }
+        
+        jContainer.appendChild(jBar);
+        jContainer.appendChild(jChips);
+        card.appendChild(jContainer);
+      }
+    }
+  }
 
   return card;
 }
@@ -480,10 +633,11 @@ function criarCardMesa(pos, item, meta) {
   cicloTag.className = "rank-ciclo";
   var cicloTxt = item.op.ciclo || "";
   if (item.op.duracaoAtivaMin > 0) {
-    cicloTxt += " · " + formatarMinutos(item.op.duracaoAtivaMin) + " ativo";
-    if (item.op.tempoInativoMin > 0) {
-      cicloTxt += " · " + formatarMinutos(item.op.tempoInativoMin) + " parado";
-    }
+    // Ocultado a pedido:
+    // cicloTxt += " · " + formatarMinutos(item.op.duracaoAtivaMin) + " ativo";
+    // if (item.op.tempoInativoMin > 0) {
+    //   cicloTxt += " · " + formatarMinutos(item.op.tempoInativoMin) + " parado";
+    // }
   }
   cicloTag.textContent = cicloTxt;
 
