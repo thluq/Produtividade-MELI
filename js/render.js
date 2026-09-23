@@ -420,12 +420,14 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
     for (var c = 0; c < op.ciclosArr.length; c++) {
       chipsHtml += "<span class='badge-ciclo'>" + op.ciclosArr[c].ciclo + " &middot; " + op.ciclosArr[c].total + "</span> ";
     }
+    if (op.duracaoAtivaMin > 0) {
+      chipsHtml += " &middot; " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
+    }
     cicloTag.innerHTML = chipsHtml;
   } else {
     var cicloTxt = op.ciclo;
     if (op.duracaoAtivaMin > 0) {
-      // Ocultado a pedido:
-      // cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
+      cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
       // if (op.tempoInativoMin > 0) {
       //   cicloTxt += " · " + formatarMinutos(op.tempoInativoMin) + " parado";
       // }
@@ -551,13 +553,13 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
             divSeg.className = "jornada-segment";
             divSeg.style.width = pct + "%";
             divSeg.style.backgroundColor = seg.color;
-            divSeg.title = seg.label + " (" + Math.round(min) + "min)";
+            divSeg.title = seg.label + " (" + formatarMinutos(Math.round(min)) + ")";
             jBar.appendChild(divSeg);
             
             var chip = document.createElement("div");
             chip.className = "jornada-chip";
             chip.title = "Jornada (dia inteiro)";
-            chip.innerHTML = '<span class="jornada-chip-dot" style="background-color:' + seg.color + '"></span>' + seg.label + ' ' + Math.round(min) + 'min';
+            chip.innerHTML = '<span class="jornada-chip-dot" style="background-color:' + seg.color + '"></span>' + seg.label + ' ' + formatarMinutos(Math.round(min));
             jChips.appendChild(chip);
           }
         }
@@ -686,8 +688,7 @@ function criarCardMesa(pos, item, meta) {
   cicloTag.className = "rank-ciclo";
   var cicloTxt = item.op.ciclo || "";
   if (item.op.duracaoAtivaMin > 0) {
-    // Ocultado a pedido:
-    // cicloTxt += " · " + formatarMinutos(item.op.duracaoAtivaMin) + " ativo";
+    cicloTxt += " · " + formatarMinutos(item.op.duracaoAtivaMin) + " ativo";
     // if (item.op.tempoInativoMin > 0) {
     //   cicloTxt += " · " + formatarMinutos(item.op.tempoInativoMin) + " parado";
     // }
@@ -859,7 +860,7 @@ function renderSummary(comTaxa, duracao, meta, isGuarda) {
 function formatarMinutos(min) {
   var h = Math.floor(min / 60);
   var m = min % 60;
-  if (h > 0 && m > 0) return h + "h " + m + "min";
+  if (h > 0 && m > 0) return h + "h " + m + "m";
   if (h > 0) return h + "h";
   return m + "min";
 }
