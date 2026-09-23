@@ -26,22 +26,36 @@ function carregarDados() {
 function tentarFontes(idx) {
   if (idx >= CONFIG.ORDER.length) {
     setStatus("error", "falha total");
-    document.getElementById("status-msg").innerHTML = "";
-    document.getElementById("rank-list").style.display = "none";
-    var loadingSpinner = document.getElementById("loading-spinner");
-    if (loadingSpinner) loadingSpinner.style.display = "none";
     
-    // Mostra erro genérico apenas se não for erro de OAuth já ativo
-    if (document.getElementById("oauth-box").style.display !== "flex") {
-      document.getElementById("gdp-error-box").style.display = "flex";
-    }
+    if (!window.lastUpdate) {
+      document.getElementById("status-msg").innerHTML = "";
+      document.getElementById("rank-list").style.display = "none";
+      var loadingSpinner = document.getElementById("loading-spinner");
+      if (loadingSpinner) loadingSpinner.style.display = "none";
+      
+      // Mostra erro genérico apenas se não for erro de OAuth já ativo
+      if (document.getElementById("oauth-box").style.display !== "flex") {
+        document.getElementById("gdp-error-box").style.display = "flex";
+      }
 
-    // Retry automático
-    if (_retryCount < _maxRetries) {
-      _retryCount++;
-      setTimeout(function() {
-        carregarDados();
-      }, 3000);
+      // Retry automático agressivo só no primeiro load
+      if (_retryCount < _maxRetries) {
+        _retryCount++;
+        setTimeout(function() {
+          carregarDados();
+        }, 3000);
+      }
+    } else {
+      // Last known good: manter dados antigos na tela, mostrar indicador de alerta
+      var ind = document.getElementById("last-update-indicator");
+      if (ind && window.lastUpdate) {
+        var d = window.lastUpdate;
+        var h = ("0" + d.getHours()).slice(-2);
+        var m = ("0" + d.getMinutes()).slice(-2);
+        ind.textContent = "⚠️ Atualizado às " + h + ":" + m;
+        ind.style.display = "block";
+      }
+      // Nenhuma limpeza de estado. A próxima tentativa normal virá do ciclo de auto-refresh.
     }
     return;
   }
@@ -135,31 +149,39 @@ function carregarExtrasAPI(onDone) {
 
 /* ── APPS SCRIPT via JSONP — com aproveitamento de resposta tardia ── */
 var _appsScriptRespondeu = false;
+var _currentAppsScriptCb = null;
 
 function fetchAppsScript(onFail) {
   var cbName = "_cb_" + Date.now();
+  _currentAppsScriptCb = cbName;
   _appsScriptRespondeu = false;
 
-  // Timeout "soft": dispara o fallback (CSV), mas NÃO mata o callback.
-  // Se a resposta chegar depois, ela é processada e sobrescreve o CSV.
   var timeout = setTimeout(function() {
     if (!_appsScriptRespondeu) {
-      onFail("lento (>30s) — usando fallback, appsscript segue em background");
+      var s = document.getElementById(cbName);
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+      window[cbName] = function() {}; // Invalida orfão
+      onFail("lento (>30s) — timeout");
     }
   }, 30000);
 
   window[cbName] = function(resp) {
     clearTimeout(timeout);
     _appsScriptRespondeu = true;
+    
+    // Proteção contra respostas atrasadas de timeouts passados
+    if (cbName !== _currentAppsScriptCb) return;
+
     try {
       var rows = resp && resp.values ? resp.values : [];
-      if (rows.length < 3) {
-        onFail("resposta ok mas só " + rows.length + " linhas");
+      if (rows.length <= 1) {
+        onFail("resposta ok mas payload malformado (length <= 1)");
         return;
       }
       processarLdap(resp.ldap || []);
       processarMt(resp.mt || []);
       processarLms(resp.lms || []);
+      processarLmsDet(resp.lmsDet || []);
       dadosSortingRaw  = resp.sorting || [];
       dadosCarregRaw   = resp.carregamento || [];
       limparErro();                          // ← some o popup de erro
@@ -178,6 +200,9 @@ function fetchAppsScript(onFail) {
   script.src = CONFIG.APPS_SCRIPT_URL + "?callback=" + cbName;
   script.onerror = function() {
     clearTimeout(timeout);
+    var s = document.getElementById(cbName);
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+    window[cbName] = function() {};
     onFail("erro de rede/script (URL ou bloqueio)");
   };
   document.head.appendChild(script);
@@ -332,7 +357,11 @@ function processarDados(rows, fonte) {
   var loadingSpinner = document.getElementById("loading-spinner");
   if (loadingSpinner) loadingSpinner.style.display = "none";
   document.getElementById("rank-list").style.display = "block";
-  lastUpdate = new Date();
+  window.lastUpdate = new Date();
+  
+  var ind = document.getElementById("last-update-indicator");
+  if (ind) ind.style.display = "none";
+  
   var hdFacilityName = document.getElementById("hd-facility-name");
   if (hdFacilityName) hdFacilityName.textContent = facilityName;
   var tvFacility = document.getElementById("tv-facility");
@@ -518,3 +547,33 @@ function processarLms(rows) {
     };
   }
 }
+
+var mapaLmsDet = {};
+
+function processarLmsDet(rows) {
+  mapaLmsDet = {};
+  if (!rows || rows.length === 0) return;
+  
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (!r || !r[0]) continue;
+    
+    var ldap = r[0].toString().toLowerCase().trim();
+    if (!mapaLmsDet[ldap]) {
+      mapaLmsDet[ldap] = {
+        tl: (r[1] || "").toString().trim(),
+        itens: []
+      };
+    }
+    
+    var minDia = parseFloat(String(r[5] || "0").replace(",", "."));
+    if (isNaN(minDia)) minDia = 0;
+    
+    mapaLmsDet[ldap].itens.push({
+      processo: (r[2] || "").toString().trim(),
+      tipo: (r[3] || "").toString().trim(),
+      timeType: (r[4] || "").toString().trim(),
+      minDia: minDia
+    });
+  }
+}

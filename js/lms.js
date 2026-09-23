@@ -148,7 +148,7 @@ function renderLms() {
     if (pNome.length >= 2) iniciais = (pNome[0][0] + pNome[pNome.length-1][0]).toUpperCase();
     else if (pNome[0].length >= 2) iniciais = pNome[0].substring(0, 2).toUpperCase();
 
-    html += "<tr>";
+    html += "<tr class='lms-row' data-ldap='" + item.ldap + "' style='cursor:pointer;'>";
     html += "<td>" +
               "<div class='lms-avatar'>" +
                 "<div class='rank-photo' style='width: 32px; height: 32px;'>" +
@@ -167,10 +167,16 @@ function renderLms() {
     html += "<td class='" + corCoa + "' style='font-weight: 700;'>" + textoCoa + "</td>";
     html += "<td style='color: var(--t3);'>" + item.jornada.toFixed(1) + "%</td>";
     html += "</tr>";
+    
+    // Detalhe escondido
+    html += "<tr class='lms-detail-row' id='lms-det-" + item.ldap + "' style='display:none;'>";
+    html += "<td colspan='10' class='lms-detail-cell' style='padding:0;'></td>";
+    html += "</tr>";
   }
   tbody.innerHTML = html;
-
+  
   updateLmsSortIcons();
+  bindLmsRowClicks();
 }
 
 function updateLmsSortIcons() {
@@ -185,6 +191,116 @@ function updateLmsSortIcons() {
       th.classList.remove("active-sort");
     }
   });
+}
+
+function bindLmsRowClicks() {
+  document.querySelectorAll(".lms-row").forEach(function(row) {
+    row.addEventListener("click", function() {
+      var ldap = this.dataset.ldap;
+      var detRow = document.getElementById("lms-det-" + ldap);
+      var detCell = detRow.querySelector(".lms-detail-cell");
+      
+      if (detRow.style.display === "none") {
+        document.querySelectorAll(".lms-detail-row").forEach(function(r) { r.style.display = "none"; });
+        renderLmsDetalhe(ldap, detCell);
+        detRow.style.display = "table-row";
+      } else {
+        detRow.style.display = "none";
+      }
+    });
+  });
+}
+
+var mapaLmsNomes = {
+  "sorting": "Guarda",
+  "dispatch_svc": "Carregamento",
+  "labeling": "Indução",
+  "inductor": "Indutor",
+  "customs_support": "Apoio Customs",
+  "labeling_support": "Apoio Indução",
+  "fishing": "Pesca",
+  "problem_solver_svc": "PS",
+  "bathroom": "Pausa pessoal",
+  "order_cleaning": "Limpeza de pedidos",
+  "simulacrum": "Simulacro",
+  "shadowing": "Shadowing",
+  "extended_idle_time": "Ociosidade Estendida (EIT)",
+  "return_to_station": "Retorno à estação",
+  "layout_setup": "Setup de layout"
+};
+
+function renderLmsDetalhe(ldap, container) {
+  if (typeof mapaLmsDet === "undefined" || !mapaLmsDet[ldap] || !mapaLmsDet[ldap].itens || mapaLmsDet[ldap].itens.length === 0) {
+    var mt = typeof mapaMt !== "undefined" && mapaMt[ldap] && mapaMt[ldap]["TOTAL"];
+    if (!mt) {
+      container.innerHTML = "<div style='padding: 16px; text-align: center; color: var(--t4);'>Nenhum detalhe disponível.</div>";
+      return;
+    }
+    container.innerHTML = "<div style='padding: 16px; color: var(--t2);'>Detalhes baseados em MT: Total " + Math.round(mt.total) + "m (Ocioso: " + Math.round(mt.ocioso) + "m, TND: " + Math.round(mt.tnd) + "m)</div>";
+    return;
+  }
+  
+  var det = mapaLmsDet[ldap];
+  var itens = det.itens.slice();
+  var tndItens = [];
+  var normItens = [];
+  var somaTotal = 0;
+  
+  for (var i = 0; i < itens.length; i++) {
+    somaTotal += itens[i].minDia;
+    if (itens[i].timeType === "time_tndnp") {
+      tndItens.push(itens[i]);
+    } else {
+      normItens.push(itens[i]);
+    }
+  }
+  
+  normItens.sort(function(a, b) { return b.minDia - a.minDia; });
+  tndItens.sort(function(a, b) { return b.minDia - a.minDia; });
+  
+  var html = "<div style='padding: 16px 32px; background-color: var(--s2); border-bottom: 1px solid var(--border);'>";
+  if (det.tl) {
+    html += "<div style='margin-bottom: 12px; font-weight: 600; color: var(--t2);'>TL: " + det.tl + "</div>";
+  }
+  
+  function renderItemRow(item) {
+    var nomeAmigavel = mapaLmsNomes[item.processo] || item.processo;
+    var isEit = (item.processo === "extended_idle_time");
+    
+    var h = Math.floor(item.minDia / 60);
+    var m = Math.round(item.minDia % 60);
+    var tempoStr = (h > 0 ? h + "h " : "") + m + "m";
+    
+    var pct = somaTotal > 0 ? Math.round((item.minDia / somaTotal) * 100) + "%" : "0%";
+    
+    var tagHtml = "";
+    if (item.tipo && item.tipo.indexOf("systemic") === 0) {
+      tagHtml = "<span style='margin-left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--s3); color: var(--t2);'>Sistêmico</span>";
+    } else if (item.tipo === "non_systemic") {
+      tagHtml = "<span style='margin-left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--s3); color: var(--t2);'>Não-sistêmico</span>";
+    }
+    
+    var colorStyle = isEit ? "color: #d32f2f; font-weight: 600;" : "color: var(--t2);";
+    
+    return "<div style='display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--s3); " + colorStyle + "'>" +
+             "<div>" + nomeAmigavel + tagHtml + "</div>" +
+             "<div><span style='display:inline-block; width: 40px; text-align:right; margin-right: 16px; opacity: 0.7; font-size: 13px;'>" + pct + "</span><span style='display:inline-block; width: 50px; text-align:right;'>" + tempoStr + "</span></div>" +
+           "</div>";
+  }
+  
+  for (var j = 0; j < normItens.length; j++) {
+    html += renderItemRow(normItens[j]);
+  }
+  
+  if (tndItens.length > 0) {
+    html += "<div style='margin-top: 16px; margin-bottom: 8px; font-size: 12px; font-weight: 700; color: var(--t3); text-transform: uppercase;'>TND</div>";
+    for (var k = 0; k < tndItens.length; k++) {
+      html += renderItemRow(tndItens[k]);
+    }
+  }
+  
+  html += "</div>";
+  container.innerHTML = html;
 }
 
 // Inicializa Event Listeners do LMS quando o script carregar

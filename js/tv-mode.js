@@ -168,14 +168,22 @@ function tvRenderAba() {
 
   // Ordenar
   comTaxa.sort(function(a, b) {
-    if (a.taxa.temDuracao && b.taxa.temDuracao) {
-      var diff = b.taxa.porMinuto - a.taxa.porMinuto;
-      if (Math.abs(diff) < 0.05) return (b.op.duracaoAtivaMin || 0) - (a.op.duracaoAtivaMin || 0);
-      return diff;
+    if (activeCycle === "TODOS") {
+      if (a.taxa.temDuracao && b.taxa.temDuracao) {
+        var diff = b.taxa.porMinuto - a.taxa.porMinuto;
+        if (Math.abs(diff) < 0.05) return (b.op.duracaoAtivaMin || 0) - (a.op.duracaoAtivaMin || 0);
+        return diff;
+      }
+      if (a.taxa.temDuracao) return -1;
+      if (b.taxa.temDuracao) return 1;
+      return b.op.total - a.op.total;
+    } else {
+      if (b.op.total !== a.op.total) return b.op.total - a.op.total;
+      var taxaA = a.taxa.temDuracao ? a.taxa.porMinuto : 0;
+      var taxaB = b.taxa.temDuracao ? b.taxa.porMinuto : 0;
+      if (taxaB !== taxaA) return taxaB - taxaA;
+      return (b.op.duracaoAtivaMin || 0) - (a.op.duracaoAtivaMin || 0);
     }
-    if (a.taxa.temDuracao) return -1;
-    if (b.taxa.temDuracao) return 1;
-    return b.op.total - a.op.total;
   });
 
   // Renderizar cards

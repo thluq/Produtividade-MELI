@@ -31,6 +31,7 @@
     </div>
     <div class="hd-right">
       <div class="hd-seeing">Você está vendo: <strong id="hd-facility-name">SSP20</strong> · v2.1</div>
+      <div id="last-update-indicator" style="display:none; color: var(--amber); font-size: 12px; font-weight: 700; margin-right: 8px;"></div>
       <div class="hd-status" id="hd-status-btn" onclick="carregarDados()" title="Clique para recarregar dados">
         <span class="dot" id="status-dot"></span>
         <span id="status-text">carregando…</span>
@@ -151,9 +152,9 @@
 
   <!-- ── PÁGINA: LMS ── -->
   <div id="page-lms" style="display:none">
-    <div class="lms-toolbar hc-toolbar">
-      <div class="lms-summary" id="lms-summary-bar"></div>
-      <div class="hc-search-box">
+    <div class="lms-toolbar">
+      <div class="summary-bar" id="lms-summary-bar" style="margin-bottom: 16px;"></div>
+      <div class="hc-search-box" style="width: 100%;">
         <img src="assets/magnifying-glass.png" alt="" class="search-input-icon">
         <input type="text" id="lms-search-input" placeholder="Buscar operador..." autocomplete="off">
         <button id="lms-search-clear" class="hc-clear-btn" style="display:none">✕</button>

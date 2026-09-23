@@ -1,6 +1,56 @@
 /* ══════════════════════════════════════════════════════════════════════
    RENDERIZAÇÃO DO RANKING
    ══════════════════════════════════════════════════════════════════════ */
+function agregarReps(arr) {
+  var map = {};
+  var order = [];
+  for (var i = 0; i < arr.length; i++) {
+    var item = arr[i];
+    var ldap = item.ldap;
+    if (!map[ldap]) {
+      var clone = {};
+      for (var key in item) {
+        if (item.hasOwnProperty(key)) {
+          clone[key] = item[key];
+        }
+      }
+      clone.ciclosArr = [{ ciclo: item.ciclo, total: item.total }];
+      map[ldap] = clone;
+      order.push(ldap);
+    } else {
+      var exist = map[ldap];
+      var foundCiclo = false;
+      for (var c = 0; c < exist.ciclosArr.length; c++) {
+        if (exist.ciclosArr[c].ciclo === item.ciclo) {
+          exist.ciclosArr[c].total += item.total;
+          foundCiclo = true;
+          break;
+        }
+      }
+      if (!foundCiclo) {
+        exist.ciclosArr.push({ ciclo: item.ciclo, total: item.total });
+      }
+      exist.total += item.total;
+      exist.duracaoAtivaMin += item.duracaoAtivaMin;
+      exist.duracaoBrutaMin += item.duracaoBrutaMin;
+      exist.tempoInativoMin += (item.tempoInativoMin || 0); // Correção 2: soma em vez de max
+    }
+  }
+
+  var res = [];
+  for (var j = 0; j < order.length; j++) {
+    var rep = map[order[j]];
+    if (rep.ciclosArr && rep.ciclosArr.length > 1) {
+      // Correção 1: recalcular a taxa
+      rep.pacotesPorMin = rep.duracaoAtivaMin > 0
+        ? rep.total / rep.duracaoAtivaMin
+        : 0;
+    }
+    res.push(rep);
+  }
+  return res;
+}
+
 function renderRanking() {
   var isGuarda = activeSub === "guarda";
   var dados = isGuarda ? dadosGuarda : dadosInducao;
@@ -114,12 +164,23 @@ function renderRanking() {
     }
 
     // ── Cards INDIVIDUAIS (sem mesa) ──
+    if (activeCycle === "TODOS") {
+      individuais = agregarReps(individuais);
+    }
     for (var i = 0; i < individuais.length; i++) {
       var op = individuais[i];
-      var duracaoCicloRef = getDuracaoCicloUnico(duracao, op.ciclo);
-      var minimoMin = (duracaoCicloRef && duracaoCicloRef.duracaoMin > 0)
-        ? duracaoCicloRef.duracaoMin * CONFIG.MINIMO_ATIVO_PCT
-        : 0;
+      var minimoMin = 0;
+      if (op.ciclosArr) {
+        for (var c = 0; c < op.ciclosArr.length; c++) {
+          var ref = getDuracaoCicloUnico(duracao, op.ciclosArr[c].ciclo);
+          if (ref && ref.duracaoMin > 0) minimoMin += ref.duracaoMin * CONFIG.MINIMO_ATIVO_PCT;
+        }
+      } else {
+        var duracaoCicloRef = getDuracaoCicloUnico(duracao, op.ciclo);
+        minimoMin = (duracaoCicloRef && duracaoCicloRef.duracaoMin > 0)
+          ? duracaoCicloRef.duracaoMin * CONFIG.MINIMO_ATIVO_PCT
+          : 0;
+      }
 
       var taxa;
       if (op.duracaoAtivaMin >= minimoMin && op.duracaoAtivaMin > 0) {
@@ -137,6 +198,9 @@ function renderRanking() {
     // GUARDA ou sem duplas: lógica original
     // ══════════════════════════════════════════════════════════════
     var comTaxa = [];
+    if (activeCycle === "TODOS") {
+      filtrados = agregarReps(filtrados);
+    }
     for (var i = 0; i < filtrados.length; i++) {
       var op = filtrados[i];
       
@@ -159,14 +223,23 @@ function renderRanking() {
           duracaoAtivaMin: minutosAtivos,
           duracaoBrutaMin: op.duracaoBrutaMin,
           tempoInativoMin: op.tempoInativoMin,
-          pacotesPorMin: op.pacotesPorMin
+          pacotesPorMin: op.pacotesPorMin,
+          ciclosArr: op.ciclosArr
         };
       }
 
-      var duracaoCicloRef = getDuracaoCicloUnico(duracao, opToRender.ciclo);
-      var minimoMin = (duracaoCicloRef && duracaoCicloRef.duracaoMin > 0)
-        ? duracaoCicloRef.duracaoMin * CONFIG.MINIMO_ATIVO_PCT
-        : 0;
+      var minimoMin = 0;
+      if (opToRender.ciclosArr) {
+        for (var c = 0; c < opToRender.ciclosArr.length; c++) {
+          var ref = getDuracaoCicloUnico(duracao, opToRender.ciclosArr[c].ciclo);
+          if (ref && ref.duracaoMin > 0) minimoMin += ref.duracaoMin * CONFIG.MINIMO_ATIVO_PCT;
+        }
+      } else {
+        var duracaoCicloRef = getDuracaoCicloUnico(duracao, opToRender.ciclo);
+        minimoMin = (duracaoCicloRef && duracaoCicloRef.duracaoMin > 0)
+          ? duracaoCicloRef.duracaoMin * CONFIG.MINIMO_ATIVO_PCT
+          : 0;
+      }
 
       var taxa;
       if (opToRender.duracaoAtivaMin >= minimoMin && opToRender.duracaoAtivaMin > 0) {
@@ -182,18 +255,26 @@ function renderRanking() {
 
   // ── Ordena por taxa desc ──
   comTaxa.sort(function(a, b) {
-    if (a.taxa.temDuracao && b.taxa.temDuracao) {
-      var diff = b.taxa.porMinuto - a.taxa.porMinuto;
-      if (Math.abs(diff) < 0.05) {
-        var tempoA = a.op.duracaoAtivaMin || 0;
-        var tempoB = b.op.duracaoAtivaMin || 0;
-        return tempoB - tempoA;
+    if (activeCycle === "TODOS") {
+      if (a.taxa.temDuracao && b.taxa.temDuracao) {
+        var diff = b.taxa.porMinuto - a.taxa.porMinuto;
+        if (Math.abs(diff) < 0.05) {
+          var tempoA = a.op.duracaoAtivaMin || 0;
+          var tempoB = b.op.duracaoAtivaMin || 0;
+          return tempoB - tempoA;
+        }
+        return diff;
       }
-      return diff;
+      if (a.taxa.temDuracao) return -1;
+      if (b.taxa.temDuracao) return 1;
+      return b.op.total - a.op.total;
+    } else {
+      if (b.op.total !== a.op.total) return b.op.total - a.op.total;
+      var taxaA = a.taxa.temDuracao ? a.taxa.porMinuto : 0;
+      var taxaB = b.taxa.temDuracao ? b.taxa.porMinuto : 0;
+      if (taxaB !== taxaA) return taxaB - taxaA;
+      return (b.op.duracaoAtivaMin || 0) - (a.op.duracaoAtivaMin || 0);
     }
-    if (a.taxa.temDuracao) return -1;
-    if (b.taxa.temDuracao) return 1;
-    return b.op.total - a.op.total;
   });
 
   // ── Summary bar ──
@@ -334,15 +415,23 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
   nome.textContent = nomeExibir;
   var cicloTag = document.createElement("div");
   cicloTag.className = "rank-ciclo";
-  var cicloTxt = op.ciclo;
-  if (op.duracaoAtivaMin > 0) {
-    // Ocultado a pedido:
-    // cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
-    // if (op.tempoInativoMin > 0) {
-    //   cicloTxt += " · " + formatarMinutos(op.tempoInativoMin) + " parado";
-    // }
+  if (op.ciclosArr && op.ciclosArr.length > 1) {
+    var chipsHtml = "";
+    for (var c = 0; c < op.ciclosArr.length; c++) {
+      chipsHtml += "<span class='badge-ciclo'>" + op.ciclosArr[c].ciclo + " &middot; " + op.ciclosArr[c].total + "</span> ";
+    }
+    cicloTag.innerHTML = chipsHtml;
+  } else {
+    var cicloTxt = op.ciclo;
+    if (op.duracaoAtivaMin > 0) {
+      // Ocultado a pedido:
+      // cicloTxt += " · " + formatarMinutos(op.duracaoAtivaMin) + " ativo";
+      // if (op.tempoInativoMin > 0) {
+      //   cicloTxt += " · " + formatarMinutos(op.tempoInativoMin) + " parado";
+      // }
+    }
+    cicloTag.textContent = cicloTxt;
   }
-  cicloTag.textContent = cicloTxt;
   info.appendChild(nome);
   info.appendChild(cicloTag);
 
@@ -412,40 +501,7 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
 
   // ── Jornada e EIT ──
   if (activeJornada && mapaMt[op.ldap]) {
-    var mtData = null;
-    var foraCicloMin = 0;
-    
-    if (activeCycle === "TODOS") {
-      var keys = Object.keys(mapaMt[op.ldap]);
-      var sumObj = { guarda: 0, volumoso: 0, inducao: 0, carregamento: 0, ps: 0, pesca: 0, apoio: 0, outros: 0, tnd: 0, ocioso: 0, flagEit: 0, total: 0 };
-      for (var k = 0; k < keys.length; k++) {
-        var c = keys[k];
-        if (c !== "TOTAL" && c !== "FORA_CICLO") {
-          var o = mapaMt[op.ldap][c];
-          sumObj.guarda += (o.guarda || 0);
-          sumObj.volumoso += (o.volumoso || 0);
-          sumObj.inducao += (o.inducao || 0);
-          sumObj.carregamento += (o.carregamento || 0);
-          sumObj.ps += (o.ps || 0);
-          sumObj.pesca += (o.pesca || 0);
-          sumObj.apoio += (o.apoio || 0);
-          sumObj.outros += (o.outros || 0);
-          sumObj.tnd += (o.tnd || 0);
-          sumObj.ocioso += (o.ocioso || 0);
-          sumObj.flagEit = Math.max(sumObj.flagEit, (o.flagEit || 0));
-          sumObj.total += (o.total || 0);
-        }
-      }
-      
-      if (mapaMt[op.ldap]["FORA_CICLO"]) {
-        var fc = mapaMt[op.ldap]["FORA_CICLO"];
-        foraCicloMin = (fc.total || 0);
-        sumObj.flagEit = Math.max(sumObj.flagEit, (fc.flagEit || 0));
-      }
-      mtData = sumObj;
-    } else {
-      mtData = mapaMt[op.ldap][activeCycle];
-    }
+    var mtData = mapaMt[op.ldap]["TOTAL"];
 
     if (mtData) {
       // EIT badge
@@ -458,14 +514,16 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
       }
       
       // Barra de Jornada
-      if (mtData.total > 0 || foraCicloMin > 0) {
+      if (mtData.total > 0) {
         card.style.flexWrap = "wrap";
         
         var jContainer = document.createElement("div");
         jContainer.className = "rank-jornada-container";
+        jContainer.title = "Jornada (dia inteiro)";
         
         var jBar = document.createElement("div");
         jBar.className = "jornada-bar";
+        jBar.title = "Jornada (dia inteiro)";
         
         var jChips = document.createElement("div");
         jChips.className = "jornada-chips";
@@ -493,20 +551,15 @@ function criarCard(pos, op, taxa, meta, isGuarda) {
             divSeg.className = "jornada-segment";
             divSeg.style.width = pct + "%";
             divSeg.style.backgroundColor = seg.color;
+            divSeg.title = seg.label + " (" + Math.round(min) + "min)";
             jBar.appendChild(divSeg);
             
             var chip = document.createElement("div");
             chip.className = "jornada-chip";
+            chip.title = "Jornada (dia inteiro)";
             chip.innerHTML = '<span class="jornada-chip-dot" style="background-color:' + seg.color + '"></span>' + seg.label + ' ' + Math.round(min) + 'min';
             jChips.appendChild(chip);
           }
-        }
-        
-        if (foraCicloMin > 0 && activeCycle === "TODOS") {
-          var fcChip = document.createElement("div");
-          fcChip.className = "jornada-chip";
-          fcChip.innerHTML = '<span class="jornada-chip-dot" style="background-color:#9e9e9e"></span>Fora Ciclo ' + Math.round(foraCicloMin) + 'min';
-          jChips.appendChild(fcChip);
         }
         
         jContainer.appendChild(jBar);
